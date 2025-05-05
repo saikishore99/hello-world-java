@@ -13,44 +13,38 @@
 #EXPOSE 8080
 #CMD ["java", "-jar", "application.jar"]
 
-# ----- Stage 1: Build -----
-FROM maven:3.8-openjdk-11 AS builder
+# === Stage 1: Build ===
+FROM maven:3.8-openjdk-11-slim AS build
 
-WORKDIR /app
+# Set work directory in container
+WORKDIR /build
 
-# Copy project files
+# Copy pom.xml and download dependencies first (for better caching)
 COPY pom.xml .
-COPY src ./src
+RUN mvn dependency:go-offline
 
-# Build the application
-RUN mvn clean package -DskipTests
+# Copy the entire project and build it
+COPY . .
+RUN mvn package -DskipTests
 
-# ----- Stage 2: Runtime -----
+# === Stage 2: Runtime ===
 FROM registry.access.redhat.com/ubi8/ubi-minimal:8.5
 
-LABEL maintainer="Muhammad Edwin <edwin@redhat.com>"
-LABEL BASE_IMAGE="registry.access.redhat.com/ubi8/ubi-minimal:8.5"
-LABEL JAVA_VERSION="11"
+MAINTAINER Muhammad Edwin <edwin at redhat dot com>
 
-# Install OpenJDK headless
+LABEL BASE_IMAGE="registry.access.redhat.com/ubi8/ubi-minimal:8.5" \
+      JAVA_VERSION="11"
+
+# Install Java
 RUN microdnf install --nodocs java-11-openjdk-headless && microdnf clean all
 
-# Create non-root user for security
-RUN useradd -r -u 1001 appuser
-
+# Set working directory
 WORKDIR /work
 
-# Copy the JAR from the builder stage
-COPY --from=builder /app/target/*.jar /work/application.jar
-
-# Set user permissions
-RUN chown -R appuser /work
-USER appuser
+# Copy jar from the build stage
+COPY --from=build /build/target/*.jar /work/application.jar
 
 EXPOSE 8080
 
+# Run the app
 CMD ["java", "-jar", "application.jar"]
-
-
-
-
