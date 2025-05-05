@@ -1,0 +1,14 @@
+apiversion: V1
+Kind: Service
+metadata:
+  name: sample-java-app-service
+spec:
+  selector:
+    app: sample-java-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetport: 8080
+  type: loadbalancer
+  
+    
