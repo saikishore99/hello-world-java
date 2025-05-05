@@ -13,13 +13,44 @@
 #EXPOSE 8080
 #CMD ["java", "-jar", "application.jar"]
 
-FROM maven:3.8.7-openjdk-17 AS build
-WORKDIR /app
-COPY . .
-RUN mvn clean package
+# ----- Stage 1: Build -----
+FROM maven:3.8-openjdk-11 AS builder
 
-#stage2 : create the final image
-FROM tomcat:9.0
-COPY --from=build /app/target/hello-world-java.war /usr/local/tomcat/webapps
+WORKDIR /app
+
+# Copy project files
+COPY pom.xml .
+COPY src ./src
+
+# Build the application
+RUN mvn clean package -DskipTests
+
+# ----- Stage 2: Runtime -----
+FROM registry.access.redhat.com/ubi8/ubi-minimal:8.5
+
+LABEL maintainer="Muhammad Edwin <edwin@redhat.com>"
+LABEL BASE_IMAGE="registry.access.redhat.com/ubi8/ubi-minimal:8.5"
+LABEL JAVA_VERSION="11"
+
+# Install OpenJDK headless
+RUN microdnf install --nodocs java-11-openjdk-headless && microdnf clean all
+
+# Create non-root user for security
+RUN useradd -r -u 1001 appuser
+
+WORKDIR /work
+
+# Copy the JAR from the builder stage
+COPY --from=builder /app/target/*.jar /work/application.jar
+
+# Set user permissions
+RUN chown -R appuser /work
+USER appuser
+
+EXPOSE 8080
+
+CMD ["java", "-jar", "application.jar"]
+
+
 
 
