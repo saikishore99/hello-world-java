@@ -1,0 +1,26 @@
+apiversion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-java-app
+spec:
+  replicas: 1
+  selector:
+    matchLables:
+       app: sample-java-app
+  template:
+    metadata:
+      labels:
+        app: sample-java-app
+    spec:
+      containers:
+      - name: sample-java-app
+        image: your-dockerhub-username-java-app
+        ports:
+        - containerPort: 8080
+        livenessProbe:
+          httpGet:
+             path: /health
+             port: 8080
+         initialDelaySeconds: 30
+         periodSeconds: 10
+         
